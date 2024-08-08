@@ -1,0 +1,114 @@
+import numpy as np
+from sklearn.svm import SVR
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import PolynomialFeatures
+import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+from statsmodels.tsa.arima.model import ARIMA
+import yfinance as yf
+
+def get_data(symbol, start_date, end_date):
+    stock_data = yf.download(symbol, start=start_date, end=end_date)
+    dates = stock_data.index
+    prices = stock_data['Adj Close'].values
+    return dates, prices
+
+def add_sma(prices, window=10):
+    sma = np.convolve(prices, np.ones(window)/window, mode='valid')
+    return np.concatenate((np.full(window-1, np.nan), sma))
+
+
+
+def predict_prices(dates, prices, x):
+    dates_numeric = np.array([date.timestamp() for date in dates]).reshape(-1, 1)
+
+    sma_prices = add_sma(prices)
+
+    # SVR model
+    svr_rbf = SVR(kernel='rbf', C=1e3, gamma=0.1)
+    svr_rbf.fit(dates_numeric, prices)
+
+    # Linear model
+    linear_model = LinearRegression()
+    linear_model.fit(dates_numeric, prices)
+
+    # Polynomial model
+    degree = 2
+    poly_features = PolynomialFeatures(degree=degree)
+    dates_poly = poly_features.fit_transform(dates_numeric)
+    poly_model = LinearRegression()
+    poly_model.fit(dates_poly, prices)
+
+    # andom Forest model
+    rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
+    rf_model.fit(dates_numeric, prices)
+
+    # ARIMA model
+    arima_model = ARIMA(prices, order=(5, 1, 0))
+    arima_fit = arima_model.fit()
+
+    plt.scatter(dates, prices, color='black', label='Data')
+
+    plt.plot(dates, sma_prices, color='gray', label='SMA')
+
+    # Plotting for SVR
+    dates_pred = [date + timedelta(days=1) for date in dates]
+    dates_pred_numeric = np.array([date.timestamp() for date in dates_pred]).reshape(-1, 1)
+    plt.plot(dates_pred, svr_rbf.predict(dates_pred_numeric), color='red', label='SVR model')
+
+    # Plotting for Linear Regression
+    plt.plot(dates_pred, linear_model.predict(dates_pred_numeric), color='green', label='Linear model')
+
+    # Plotting for Polynomial Regression
+    dates_pred_poly = poly_features.transform(dates_pred_numeric)
+    plt.plot(dates_pred, poly_model.predict(dates_pred_poly), color='blue', label=f'Polynomial (Degree {degree})')
+
+    # Plotting for Random Forest
+    plt.plot(dates_pred, rf_model.predict(dates_pred_numeric), color='orange', label='Random Forest model')
+
+    # Plotting for ARIMA
+    arima_pred = arima_fit.forecast(steps=len(dates_pred))
+    plt.plot(dates_pred, arima_pred, color='purple', label='ARIMA model')
+
+    plt.xlabel('Date')
+    plt.ylabel('Price')
+    plt.title('Stock Price Prediction')
+    plt.legend()
+    plt.show()
+
+    x_numeric = datetime.strptime(x, '%m/%d/%Y').timestamp()
+
+    #predicts various models
+    predicted_price_svr = svr_rbf.predict([[x_numeric]])[0]
+    predicted_price_linear = linear_model.predict([[x_numeric]])[0]
+    predicted_price_poly = poly_model.predict(poly_features.transform([[x_numeric]]))[0]
+    predicted_price_rf = rf_model.predict([[x_numeric]])[0]
+    predicted_price_arima = arima_fit.forecast(steps=1)[0]
+
+    return (
+        predicted_price_svr,
+        predicted_price_linear,
+        predicted_price_poly,
+        predicted_price_rf,
+        predicted_price_arima
+    )
+
+
+symbol = 'DOGE-USD'  #use any stock ticker
+start_date = '2024-01-01'
+end_date = '2024-03-03'
+
+dates, prices = get_data(symbol, start_date, end_date)
+
+
+user_input_date = input("Enter the date (format: MM/DD/YYYY): ")
+
+#predict the stock price 
+predicted_prices = predict_prices(dates, prices, user_input_date)
+
+print(f"Predicted Stock Price (SVR): {predicted_prices[0]}")
+print(f"Predicted Stock Price (Linear): {predicted_prices[1]}")
+print(f"Predicted Stock Price (Polynomial): {predicted_prices[2]}")
+print(f"Predicted Stock Price (Random Forest): {predicted_prices[3]}")
+print(f"Predicted Stock Price (ARIMA): {predicted_prices[4]}")

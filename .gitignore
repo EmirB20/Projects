@@ -1,0 +1,29 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Model weights / large data
+*.pt
+*.pth
+*.h5
+*.onnx
+*.zip
+*.tar
+*.tar.gz
+*.csv
+*.json
+*.mp4
+*.mov
+*.avi
+*.jpg
+*.png
+# System files
+.DS_Store
+Thumbs.db
